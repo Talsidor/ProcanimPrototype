@@ -11,7 +11,7 @@ public class Procanim_TestController : SuperBehaviour
 	public Transform lHandGrab, rHandGrab, lookTarget;
 	GameObject lFootTarget, rFootTarget;
 	LayerMask levelGeom;
-	Quaternion lFootLocalRot, rFootLocalRot;
+	Quaternion lFootRotOffset, rFootRotOffset; // Because the rig's feet default rotations aren't aligned flat to the ground, multiply any rotations applied to them by these offsets
 	float footYOffset = 0.1134f;
 
 	// Controller Variables
@@ -39,8 +39,8 @@ public class Procanim_TestController : SuperBehaviour
 
 		// IK Init
 		levelGeom = LayerMask.GetMask("LevelGeom");
-		lFootLocalRot = anim.GetBoneTransform(HumanBodyBones.LeftFoot).localRotation;
-		rFootLocalRot = anim.GetBoneTransform(HumanBodyBones.RightFoot).localRotation;
+		lFootRotOffset = Quaternion.FromToRotation(eul, anim.GetBoneTransform(HumanBodyBones. LeftFoot).eulerAngles);
+		rFootRotOffset = Quaternion.FromToRotation(eul, anim.GetBoneTransform(HumanBodyBones.RightFoot).localEulerAngles);
 		lFootTarget = new GameObject("lFootTarget_RUNTIME");
 		rFootTarget = new GameObject("rFootTarget_RUNTIME");
 	}
@@ -137,21 +137,29 @@ public class Procanim_TestController : SuperBehaviour
 		{
 			// Left Foot =============
 
+			// Left Knee Hint IK (Face along character forward)
+			anim.SetIKHintPosition(AvatarIKHint.LeftKnee, pos + fwd + -transform.right);
+			anim.SetIKHintPositionWeight(AvatarIKHint.LeftKnee, 1);
+
 			// Visualize ray
 			Debug.DrawLine(
 				anim.GetBoneTransform(HumanBodyBones.LeftFoot).position + (Vector3.up * 0.25f),
 				anim.GetBoneTransform(HumanBodyBones.LeftFoot).position + (Vector3.down * 0.5f));
 
-			// If grounded test foot ray
+			// If grounded test foot raaay
 			if (isGrounded && Physics.Raycast(anim.GetBoneTransform(HumanBodyBones.LeftFoot).position + (Vector3.up * 0.25f), Vector3.down, out hit, 0.5f, levelGeom))
 			{
+				Debug.DrawLine(hit.point, hit.point + hit.normal, Color.red);
+
 				// Position
 				anim.SetIKPosition(AvatarIKGoal.LeftFoot, hit.point + (Vector3.up * footYOffset));
 				//lFootTarget.transform.position = Vector3.MoveTowards(lFootTarget.transform.position, hit.point, Time.deltaTime * Vector3.Distance(lFootTarget.transform.position, hit.point));
 				anim.SetIKPositionWeight(AvatarIKGoal.LeftFoot, 1);
 
 				// Rotation
-				//anim.SetIKRotation(AvatarIKGoal.LeftFoot, lFootLocalRot * Quaternion.Euler(hit.normal));
+				Vector3 footDir = Vector3.Cross(hit.normal, -transform.right);
+				Debug.DrawRay(hit.point, footDir, Color.green);
+				anim.SetIKRotation(AvatarIKGoal.LeftFoot, Quaternion.LookRotation(footDir, hit.normal) * lFootRotOffset); 
 				anim.SetIKRotationWeight(AvatarIKGoal.LeftFoot, 1);
 			}
 			else
@@ -165,6 +173,10 @@ public class Procanim_TestController : SuperBehaviour
 
 			// Right Foot ==============
 
+			// Left Knee Hint IK (Face along character forward)
+			anim.SetIKHintPosition(AvatarIKHint.RightKnee, pos + fwd + transform.right);
+			anim.SetIKHintPositionWeight(AvatarIKHint.RightKnee, 1);
+
 			// Visualize ray
 			Debug.DrawLine(
 				anim.GetBoneTransform(HumanBodyBones.RightFoot).position + (Vector3.up * 0.25f),
@@ -173,17 +185,24 @@ public class Procanim_TestController : SuperBehaviour
 			// If grounded test foot ray
 			if (isGrounded && Physics.Raycast(anim.GetBoneTransform(HumanBodyBones.RightFoot).position + (Vector3.up * 0.25f), Vector3.down, out hit, 0.5f, levelGeom))
 			{
+				Debug.DrawLine(hit.point, hit.point + hit.normal, Color.red);
+
 				// Position
 				anim.SetIKPosition(AvatarIKGoal.RightFoot, hit.point + (Vector3.up * footYOffset));
 				//rFootTarget.transform.position = Vector3.MoveTowards(rFootTarget.transform.position, hit.point, Time.deltaTime * Vector3.Distance(rFootTarget.transform.position, hit.point));
+				// Push position weight up to 1
 				anim.SetIKPositionWeight(AvatarIKGoal.RightFoot, 1);
 
 				// Rotation
-				//anim.SetIKRotation(AvatarIKGoal.RightFoot, rFootLocalRot * Quaternion.Euler(hit.normal));
+				Vector3 footDir = Vector3.Cross(hit.normal, -transform.right);
+				Debug.DrawRay(hit.point, footDir, Color.green);
+				anim.SetIKRotation(AvatarIKGoal.RightFoot, Quaternion.LookRotation(footDir, hit.normal) * rFootRotOffset);
+				// Push rotation weight up to 1
 				anim.SetIKRotationWeight(AvatarIKGoal.RightFoot, 1);
 			}
 			else
 			{
+				// Push position and rotation weights down to 0
 				anim.SetIKPositionWeight(AvatarIKGoal.RightFoot, 0);
 				anim.SetIKRotationWeight(AvatarIKGoal.RightFoot, 0);
 			}
